@@ -1,74 +1,59 @@
-ASTACK SEGMENT STACK
-   DW 200 DUP(?)
-ASTACK ENDS
+ASTACK segment STACK
+	dw 256 dup(?)
+ASTACK ends
 
-DATA SEGMENT
+DATA segment
     ROUT_LOADED db 'Interruption is already loaded', 0DH, 0AH, '$'
     ROUT_CHANGED db 'Interruption is loaded successfully', 0DH, 0AH, '$'
     ROUT_IS_NOT_LOADED db 'Interruption is not loaded', 0DH, 0AH, '$'
     ROUT_UNLOADED db 'Interruption is restored', 0DH, 0AH, '$'
-DATA ENDS
+DATA ends
 
-CODE SEGMENT
-   ASSUME CS:CODE, DS:DATA, SS:ASTACK
+CODE segment
+	assume cs:CODE, ds:DATA, ss:ASTACK
 
-WRITE  PROC  NEAR
-    push ax
-    mov ah, 9
-    int 21h
-    pop ax
-    ret
-WRITE  ENDP
-
-start:
 ROUT proc far
-    jmp START_ST
+	jmp START_ST
+	
+	INTSEG dw 256 dup(0)
+	INT_SIG dw 0ffffh
+	KEEP_IP dw 0
+	KEEP_CS dw 0
+	KEEP_PSP dw 0
+	KEEP_AX dw 0
+	KEEP_SS dw 0
+	KEEP_SP dw 0
 
-    KEEP_PSP DW 0
-    KEEP_IP DW 0
-   	KEEP_CS DW 0
-    KEEP_SS DW 0
-	KEEP_SP DW 0
-	KEEP_AX DW 0
-    INT_SIG DW 7777h
-    INTSEG DW 64 DUP(?)
 START_ST:
-    mov KEEP_SP, sp
-    mov KEEP_AX, ax
-    mov KEEP_SS, ss
-
-    mov ax, seg INTSEG
-    mov ss, ax
-    mov ax, offset START_ST
-    mov sp, ax
-
-    mov ax, KEEP_AX
-    
-    push bx
-   	push cx
-   	push dx
-    push si
-    push cx
-    push ds
-    push ax
-
-    in al, 60h
-    cmp al, 10h
-    je K_Q
-    cmp al, 11h
-    je K_W
-
-    call dword ptr cs:[KEEP_IP]
-    jmp END_ROUT_P
+	mov KEEP_AX,ax
+	mov KEEP_SP,sp
+	mov KEEP_SS,ss
+	
+	mov ax,seg INTSEG
+	mov ss,ax
+	mov ax,offset INTSEG
+	add ax,256
+	mov sp,ax
+	
+	mov ax,KEEP_AX
+	
+	in al,60h
+	cmp al,10h
+	je K_Q
+	cmp al,11h
+	je K_W
+	
+	call dword ptr cs:[KEEP_IP]
+	jmp END_ROUT_P
 K_Q:
-    mov al, 'a'
-    jmp DO
+	mov al,'a'
+	jmp DO
 K_W:
-    mov al, 's'
+	mov al,'s'
 
 DO:
-    push ax
-    in al, 61h
+	push ax
+	in al, 61h
     mov ah, al
     or al, 80h
     out 61h, al
@@ -76,10 +61,10 @@ DO:
     out 61h, al
     mov al, 20H
     out 20h, al
-    pop ax
+	pop ax
 
 READS:
-    mov ah, 05h
+	mov ah, 05h
     mov cl, al
     mov ch, 00h
     int 16h
@@ -92,218 +77,213 @@ READS:
     jmp READS
 
 END_ROUT_P:
-    pop ds
-    pop es
-    pop si
-    pop dx
-    pop cx
-    pop bx
-    pop ax
-	mov sp, KEEP_SP
-	mov ax, KEEP_SS
-	mov ss, ax
-	mov ax, KEEP_AX
-	mov al, 20h
-	out 20h, al
+	mov sp,KEEP_SP
+	mov ax,KEEP_SS
+	mov ss,ax
+	mov ax,KEEP_AX
+	mov al,20h
+	out 20h,al
 	iret
 ROUT endp
 
-CHECK_UNLOAD PROC near
-   	push ax
-    push es
+CHECK_UNLOAD proc far
+	push bx
+	push si
 
-    mov cl, 0h
- 
-   	mov al,es:[81h+1]
-   	cmp al,'/'
-   	jne WRONG_ARG
+	mov ah, 35h
+	mov al, 1ch
+	int 21h
+	
+	mov si, offset INT_SIG
+	sub si, offset ROUT
+	mov dx, es:[bx + si]
+	cmp dx, INT_SIG
+	jne not_loaded
+	mov ax, 1h
+    jmp is_loaded_exit
 
-   	mov al,es:[81h+2]
-   	cmp al,'u'
-   	jne WRONG_ARG
+not_loaded:
+    mov ax, 0h
 
-   	mov al,es:[81h+3]
-   	cmp al,'n'
-   	jne WRONG_ARG
+is_loaded_exit:
+	pop si
+	pop bx
 
-    mov cl,1h
-
-WRONG_ARG:
-    pop es
-   	pop ax
-   	ret
-CHECK_UNLOAD ENDP
-
-
-CHECK_LOADED PROC NEAR
-    push ax
-    push dx
-    push es
-    push si
-
-    mov cl, 0h
-
-    mov ah, 35h
-    mov al, 09h
-    int 21h
-
-    mov si, offset INT_SIG
-    sub si, offset ROUT
-    mov dx, es:[bx + si]
-    cmp dx, INT_SIG
-    jne NOT_LOADED
-
-    mov cl, 1h
-
-NOT_LOADED:
-    pop si
-    pop es
-    pop dx
-    pop ax
     ret
-CHECK_LOADED ENDP
+CHECK_UNLOAD endp
 
-LOAD_ROUT PROC near
-    push ax
+LOAD_ROUT proc far
+	push ax
+    push bx
     push cx
     push dx
-
-    mov KEEP_PSP, es
-
-    mov ah, 35h
-    mov al, 09h
-    int 21h
-
-    mov KEEP_CS, es
-    mov KEEP_IP, bx
-
     push es
-    push bx
     push ds
 
-    lea dx, ROUT
-    mov ax, SEG ROUT
-    mov ds, ax
 
-    mov ah, 25h
-    mov al, 09h
-    int 21h
 
-    pop ds
-    pop bx
-    pop es
+	mov ah,35h
+	mov al,1ch
+	int 21h
+	
+	mov KEEP_CS,es
+	mov KEEP_IP,bx
+	
 
-    mov dx, offset ROUT_CHANGED
-    call WRITE
+	mov dx, offset ROUT
+	mov ax, seg ROUT
+	mov ds,ax
+	
+	mov ah,25h
+	mov al,1ch
+	int 21h
+	
+	pop ds
 
-    lea dx, END_ROUT_P
-    mov cl, 4h
-    shr dx, cl
-    inc dx
+	mov dx,offset ROUT_CHANGED
+	call WRITE
+	
+	mov dx, offset END_ROUT_P
+	mov cl,4h
+	shr dx,cl
+	inc dx
+	
+	add dx,100h
+	xor ax,ax
+	
+	mov ah,31h
+	int 21h
 
-    add dx, 100h
 
-    xor ax,ax
-
-    mov ah, 31h
-    int 21h
-
+	pop es
     pop dx
     pop cx
+    pop bx
     pop ax
-    ret
-LOAD_ROUT ENDP
+	ret
+LOAD_ROUT endp
 
-UNLOAD_ROUT PROC near
+UNLOAD_ROUT proc
+	cli
+    
     push ax
-    push si
-
-    call CHECK_LOADED
-    cmp cl, 1h
-    jne ROUT_ISNOT_LOADED
-
-    cli
-
+    push bx
+    push dx
     push ds
     push es
+    push si
 
     mov ah, 35h
-    mov al, 09h
+    mov al, 1ch
     int 21h
-
     mov si, offset KEEP_IP
     sub si, offset ROUT
     mov dx, es:[bx + si]
     mov ax, es:[bx + si + 2]
-    mov ds, ax
 
+    push ds
+    mov ds, ax
     mov ah, 25h
-    mov al, 09h
+    mov al, 1ch
     int 21h
+    pop ds
 
     mov ax, es:[bx + si + 4]
     mov es, ax
     push es
-
     mov ax, es:[2ch]
     mov es, ax
     mov ah, 49h
     int 21h
-
     pop es
     mov ah, 49h
     int 21h
 
-    pop es
-    pop ds
-
     sti
 
-    mov dx, offset ROUT_UNLOADED
-    call WRITE
+	push dx
+	mov dx,offset ROUT_UNLOADED
+	call WRITE
+	pop dx
 
-
-
-    jmp UNLOAD_END
-
-ROUT_ISNOT_LOADED:
-    mov dx, offset ROUT_IS_NOT_LOADED
-    call WRITE
-
-UNLOAD_END:
     pop si
+    pop es
+    pop ds
+    pop dx
+    pop bx
     pop ax
+	ret
+UNLOAD_ROUT endp
+
+WRITE proc near
+	push ax
+	mov ah,09h
+	int 21h
+	pop ax
+	ret
+WRITE endp
+
+CHECK_LOADED proc far
+	push es
+	mov ax, KEEP_PSP
+    mov es, ax
+
+	
+    mov al, es:[81h+1]
+	cmp al, '/'
+	jne WRONG_ARG
+	
+	mov al, es:[81h+2]
+	cmp al, 'u'
+	jne WRONG_ARG
+	
+	mov al, es:[81h+3]
+	cmp al, 'n'
+	jne WRONG_ARG
+
+    mov ax, 1h
+    jmp CHECK_LOADED_exit
+
+WRONG_ARG:
+    mov ax, 0h
+
+CHECK_LOADED_exit:
+	pop es
     ret
-UNLOAD_ROUT ENDP
+CHECK_LOADED endp
 
-MAIN PROC FAR
-    mov   ax, DATA
-    mov   ds, ax
-
-    call CHECK_UNLOAD
-    cmp cl, 1h
-    je START_UNLOAD
-
-    call CHECK_LOADED
-    cmp ch, 1h
-    je ALREADY_LOADED
-
-    call LOAD_ROUT
-    jmp EXIT
-
+main proc far
+	mov ax,DATA
+	mov ds,ax
+	mov KEEP_PSP,es
+	
+	push es
+	
+	call CHECK_UNLOAD
+	cmp ax,0h
+	jne START_UNLOAD
+	
+	call LOAD_ROUT
+	pop es
+	jmp exit
+	
 START_UNLOAD:
-    call UNLOAD_ROUT
-    jmp EXIT
+	pop es
+	call CHECK_LOADED
+	cmp ax,0h
+	je ALREADY_LOADED
+	call UNLOAD_ROUT
+	jmp exit
 
 ALREADY_LOADED:
-    mov dx, offset ROUT_LOADED
-    call WRITE
-    jmp EXIT
+	mov dx,offset ROUT_LOADED
+	call WRITE
 
-EXIT:
-    xor al, al
-    mov ah, 4ch
-    int 21h
-MAIN endp
+exit:
+	xor al,al
+	mov ah,4ch
+	int 21h
+main endp
+
 CODE ends
-END Main
+end main 
