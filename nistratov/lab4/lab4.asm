@@ -103,18 +103,18 @@ START:
     mov ss, ax
 
     ; Cохранение изменяемого регистра
-    push ax
-    push cx
-    push dx
+	push ax 
+	push cx 
+	push dx
 
     call getCurs
     push dx
     call setCurs
 
-    push si
-    push cx
-    push ds
-    push bp
+	push si
+	push cx
+	push ds
+	push bp
 
     mov ax, SEG INT_COUNTER
     mov ds, ax
@@ -135,21 +135,22 @@ LOOP_ELEM:
     loop LOOP_ELEM
 
 UPDATE_RES:
-    pop bp
-    pop ds
-    pop cx
-    pop si
+	
+	pop bp
+	pop ds
+	pop cx
+	pop si
 
-    push es
-    push bp
-
+	push es
+	push bp
+	
     mov ax, SEG INT_COUNTER
     mov es,ax
     mov ax, offset INT_COUNTER
     mov bp,ax
 
     mov ah, 13h
-    mov al, 0
+    mov al, 00h
     mov bh, 0
     mov cx, 26
     int 10h
@@ -158,8 +159,8 @@ UPDATE_RES:
     pop es
 
     pop dx
-    mov ah, 2
-    mov bh, 0 
+    mov ah, 02h
+    mov bh, 0h
     int 10h
 
 
@@ -169,7 +170,6 @@ UPDATE_RES:
     pop cx 
     pop ax 
 
-    mov KEEP_AX, ax
     mov sp, KEEP_SP
     mov ax, KEEP_SS
     mov ss, ax
@@ -209,10 +209,10 @@ WRONG_ARG:
 CHECK_UNLOAD ENDP
 
 CHECK_LOADED PROC NEAR
-    push ax
-    push dx
-    push es
-    push si
+	push ax
+	push dx
+	push es
+	push si
 
     mov cl, 0h
 
@@ -229,10 +229,10 @@ CHECK_LOADED PROC NEAR
     mov cl, 1h
 
 NOT_LOADED:
-    pop si
-    pop es
-    pop dx
-    pop ax
+	pop si
+	pop es
+	pop dx
+	pop ax
     ret
 CHECK_LOADED ENDP
 
@@ -354,12 +354,12 @@ MAIN PROC FAR
     mov   ds, ax
 
     call CHECK_UNLOAD
-    cmp cl, 1h
-    je START_UNLOAD
+    cmp cl, 0h
+    jne START_UNLOAD
 
     call CHECK_LOADED
-    cmp ch, 1h
-    je ALREADY_LOADED
+    cmp cl, 0h
+    jne ALREADY_LOADED
 
     call LOAD_ROUT
     jmp EXIT
